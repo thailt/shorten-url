@@ -41,7 +41,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	implementation 'org.springframework.boot:spring-boot-starter-json'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-
+	implementation 'com.relops:snowflake:1.1'
 	compileOnly 'org.projectlombok:lombok'
 	implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
 

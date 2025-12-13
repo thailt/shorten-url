@@ -8,8 +8,12 @@ import org.springframework.stereotype.Component;
 @Component
 public class AppConfig {
     private final String shortenDomain;
+    private final Long machineId;
 
-    public AppConfig(@Value("${app.shorten-domain}") String shortenDomain) {
+    public AppConfig(
+            @Value("${app.shorten-domain}") String shortenDomain,
+            @Value("${app.machine-id}") Long machineId) {
         this.shortenDomain = shortenDomain;
+        this.machineId = machineId;
     }
 }

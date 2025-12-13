@@ -20,6 +20,7 @@ public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
 
     private final ConcurrentHashMap<String, AliasCreateResponse> shortenUrlMap =
             new ConcurrentHashMap<>();
+
     private final KeyGenerationService keyGenerationService;
     private final AppConfig appConfig;
 

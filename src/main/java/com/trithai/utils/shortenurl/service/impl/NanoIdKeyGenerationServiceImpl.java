@@ -5,18 +5,21 @@ import com.trithai.utils.shortenurl.service.KeyGenerationService;
 import java.security.SecureRandom;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
+@Qualifier("nano-id-key-gen")
 @Service
 @AllArgsConstructor
 @Slf4j
-public class KeyGenerationServiceImpl implements KeyGenerationService {
+public class NanoIdKeyGenerationServiceImpl implements KeyGenerationService {
     public static final SecureRandom DEFAULT_NUMBER_GENERATOR = new SecureRandom();
 
+    // base 58 to get humand friendly alias
     public static final char[] DEFAULT_ALPHABET =
             "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ".toCharArray();
 
-    public static final int DEFAULT_SIZE = 10;
+    public static final int DEFAULT_SIZE = 8;
 
     @Override
     public String createUniqueKey() {
