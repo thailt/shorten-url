@@ -3,10 +3,9 @@ package com.trithai.utils.shortenurl.service.impl;
 import com.trithai.utils.shortenurl.config.AppConfig;
 import com.trithai.utils.shortenurl.dto.AliasCreateRequest;
 import com.trithai.utils.shortenurl.dto.AliasCreateResponse;
-import com.trithai.utils.shortenurl.entity.Alias;
 import com.trithai.utils.shortenurl.exceptions.AliasNotFoundException;
-import com.trithai.utils.shortenurl.exceptions.CreatingAliasExistedException;
 import com.trithai.utils.shortenurl.repository.AliasRepository;
+import com.trithai.utils.shortenurl.service.AliasDBService;
 import com.trithai.utils.shortenurl.service.KeyGenerationService;
 import com.trithai.utils.shortenurl.service.ShortenUrlService;
 import com.trithai.utils.shortenurl.utils.LRUCache;
@@ -15,15 +14,12 @@ import jakarta.annotation.PostConstruct;
 
 import lombok.AllArgsConstructor;
 
-import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.time.LocalDateTime;
-import java.util.Objects;
 
 @AllArgsConstructor
 @Service
@@ -39,6 +35,7 @@ public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
     private final RedisTemplate<String, AliasCreateResponse> aliasReponseRedisTemplate;
 
     private final BloomFilterService bloomFilterService;
+    private final AliasDBService aliasDBService;
 
     @PostConstruct
     public void init() {
@@ -60,7 +57,7 @@ public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
             return cachedResponse;
         }
 
-        var alias = aliasRepository.findAliasByAlias(shortUrl);
+        var alias = aliasDBService.getFromDb(shortUrl);
         if (alias != null) {
             var aliasRes =
                     AliasCreateResponse.builder()
@@ -76,26 +73,11 @@ public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
         throw new AliasNotFoundException(shortUrl);
     }
 
+
     @Override
     public AliasCreateResponse createShortUrl(AliasCreateRequest longUrl) {
         String key = keyGenerationService.createUniqueKey();
-
-        if (bloomFilterService.checkShortenURLAvailability(key)
-                && aliasRepository.existsAliasByAlias(key)) {
-            throw new CreatingAliasExistedException("Try again");
-        }
-
-        var alias =
-                aliasRepository.save(
-                        Alias.builder()
-                                .alias(key)
-                                .createdAt(LocalDateTime.now())
-                                .expiredAt(
-                                        Objects.requireNonNullElse(
-                                                longUrl.getExpire(),
-                                                LocalDateTime.now().plusYears(1)))
-                                .url(longUrl.getUrl())
-                                .build());
+        var alias = aliasDBService.saveToDb(longUrl, key);
 
         var response =
                 AliasCreateResponse.builder()
@@ -105,6 +87,7 @@ public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
                         .shortenUrl("http://" + appConfig.getShortenDomain() + "/" + key)
                         .build();
         shortenUrlMap.put(key, response);
+        bloomFilterService.addData(key);
         aliasReponseRedisTemplate.opsForValue().set(key, response, Duration.ofDays(10));
         return response;
     }
