@@ -13,10 +13,6 @@ description = 'Shorten URL'
 spotless {
 	java {
 		googleJavaFormat().aosp()
-		// optional: you can specify a specific version (>= 1.8) and/or switch to AOSP style
-		//   and/or reflow long strings
-		//   and/or use custom group artifact (you probably don't need this)
-//		googleJavaFormat('1.8').aosp().reflowLongStrings().formatJavadoc(false).reorderImports(false).groupArtifact('com.google.googlejavaformat:google-java-format')
 	}
 }
 
@@ -44,6 +40,7 @@ dependencies {
 	implementation 'com.relops:snowflake:1.1'
 	compileOnly 'org.projectlombok:lombok'
 	implementation 'com.aventrix.jnanoid:jnanoid:2.0.0'
+	implementation 'org.redisson:redisson:3.27.2'
 
 //	developmentOnly 'org.springframework.boot:spring-boot-docker-compose'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

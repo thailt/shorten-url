@@ -1,15 +1,20 @@
 package com.trithai.utils.shortenurl.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Builder
 @AllArgsConstructor
+@NoArgsConstructor
 @Entity
 @Data
-@Table(name = "Alias")
+@Table(name = "Alias", indexes = {
+@Index(name = "idx_alias_url", columnList = "alias, url")
+})
 public class Alias {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "alias_seq_gen")
@@ -18,4 +23,7 @@ public class Alias {
 
     private String alias;
     private String url;
+
+    private LocalDateTime createdAt;
+    private LocalDateTime expiredAt;
 }
