@@ -12,7 +12,7 @@ services:
     volumes:
       - 'my-app-data:/var/lib/mysql'
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u",grcdfrf "root", "-pverysecret"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pverysecret"]
       interval: 10s
       timeout: 5s
       retries: 5
