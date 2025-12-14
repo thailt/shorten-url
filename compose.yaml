@@ -1,6 +1,7 @@
 services:
   mysql:
-    image: 'mysql:latest'
+    image: 'mysql:8.0'
+    container_name: shortenurl-mysql
     environment:
       - 'MYSQL_DATABASE=mydatabase'
       - 'MYSQL_PASSWORD=secret'
@@ -10,9 +11,53 @@ services:
       - '3306:3306'
     volumes:
       - 'my-app-data:/var/lib/mysql'
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u",grcdfrf "root", "-pverysecret"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortenurl-network
+
   redis:
-    image: 'redis:latest'
+    image: 'redis:8-alpine'
+    container_name: shortenurl-redis
     ports:
       - '6379:6379'
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - shortenurl-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: shortenurl-app
+    ports:
+      - '8080:8080'
+    environment:
+      - 'SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/mydatabase'
+      - 'SPRING_DATASOURCE_USERNAME=myuser'
+      - 'SPRING_DATASOURCE_PASSWORD=secret'
+      - 'SPRING_DATA_REDIS_HOST=redis'
+      - 'SPRING_DATA_REDIS_PORT=6379'
+      - 'APP_SHORTEN_DOMAIN=localhost:8080'
+      - 'APP_MACHINE_ID=1'
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shortenurl-network
+
 volumes:
   my-app-data:
+
+networks:
+  shortenurl-network:
+    driver: bridge
