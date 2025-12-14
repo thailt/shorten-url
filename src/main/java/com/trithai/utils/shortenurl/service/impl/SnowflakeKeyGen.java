@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service;
 @Service
 @Primary
 @Slf4j
-public class SnowflakeKeyGenerationServiceImpl implements KeyGenerationService {
+public class SnowflakeKeyGen implements KeyGenerationService {
 
     private static final char[] ALPHABET =
             "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz".toCharArray();
@@ -22,7 +22,7 @@ public class SnowflakeKeyGenerationServiceImpl implements KeyGenerationService {
 
     private final Snowflake snowflake;
 
-    public SnowflakeKeyGenerationServiceImpl(AppConfig appConfig) {
+    public SnowflakeKeyGen(AppConfig appConfig) {
         snowflake = new Snowflake((int) (appConfig.getMachineId() % MAX_NODE));
     }
 

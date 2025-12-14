@@ -25,7 +25,7 @@ import java.time.Duration;
 @Service
 @Primary
 @Qualifier("hash-map-shorten-service")
-public class ShortenUrlServiceHashMapBaseImpl implements ShortenUrlService {
+public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
     private final LRUCache<String, AliasCreateResponse> shortenUrlMap = new LRUCache<>(5);
 

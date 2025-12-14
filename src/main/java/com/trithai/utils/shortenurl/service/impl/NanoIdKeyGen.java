@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 @Service
 @AllArgsConstructor
 @Slf4j
-public class NanoIdKeyGenerationServiceImpl implements KeyGenerationService {
+public class NanoIdKeyGen implements KeyGenerationService {
     public static final SecureRandom DEFAULT_NUMBER_GENERATOR = new SecureRandom();
 
     // base 58 to get humand friendly alias
