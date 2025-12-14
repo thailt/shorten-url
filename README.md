@@ -1,91 +1,280 @@
-# Getting Started
+# URL Shortening Service
 
-### Reference Documentation
-For further reference, please consider the following sections:
+A high-performance, scalable URL shortening service built with Spring Boot, featuring advanced caching strategies, Bloom filter optimization, and distributed ID generation.
 
-* [Official Gradle documentation](https://docs.gradle.org)
-* [Spring Boot Gradle Plugin Reference Guide](https://docs.spring.io/spring-boot/4.0.0/gradle-plugin)
-* [Create an OCI image](https://docs.spring.io/spring-boot/4.0.0/gradle-plugin/packaging-oci-image.html)
-* [GraalVM Native Image Support](https://docs.spring.io/spring-boot/4.0.0/reference/packaging/native-image/introducing-graalvm-native-images.html)
-* [Docker Compose Support](https://docs.spring.io/spring-boot/4.0.0/reference/features/dev-services.html#features.dev-services.docker-compose)
-* [Spring Web](https://docs.spring.io/spring-boot/4.0.0/reference/web/servlet.html)
-* [Spring Data Redis (Access+Driver)](https://docs.spring.io/spring-boot/4.0.0/reference/data/nosql.html#data.nosql.redis)
+## Summary of Functionality
 
-### Guides
-The following guides illustrate how to use some features concretely:
+This service provides a URL shortening API that converts long URLs into short, manageable aliases. Key features include:
 
-* [Building a RESTful Web Service](https://spring.io/guides/gs/rest-service/)
-* [Serving Web Content with Spring MVC](https://spring.io/guides/gs/serving-web-content/)
-* [Building REST services with Spring](https://spring.io/guides/tutorials/rest/)
-* [Messaging with Redis](https://spring.io/guides/gs/messaging-redis/)
-* [Accessing data with MySQL](https://spring.io/guides/gs/accessing-data-mysql/)
+- **Create Short URLs**: Generate unique short aliases for long URLs with optional expiration dates
+- **Redirect to Original URLs**: Fast lookup and HTTP redirect to original URLs using short aliases
+- **Custom Aliases**: Support for user-provided custom aliases
+- **Expiration Support**: Optional expiration dates for short URLs
+- **High Performance**: Multi-layer caching with LRU cache, Redis, and Bloom filter optimization
+- **Scalable Architecture**: Designed for distributed systems with Snowflake ID generation
 
-### Additional Links
-These additional references should also help you:
+## Technical Stack
 
-* [Gradle Build Scans – insights for your project's build](https://scans.gradle.com#gradle)
-* [Configure AOT settings in Build Plugin](https://docs.spring.io/spring-boot/4.0.0/how-to/aot.html)
+- **Framework**: Spring Boot 4.0.0
+- **Language**: Java 21
+- **Build Tool**: Gradle 8.14+
+- **Database**: MySQL 8.0 (persistent storage)
+- **Cache**: Redis 8 (Bloom filter support, caching layer)
+- **Containerization**: Docker & Docker Compose
 
-### Docker Compose support
-This project contains a Docker Compose file named `compose.yaml`.
-In this file, the following services have been defined:
+## Key Technologies
 
-* mysql: [`mysql:latest`](https://hub.docker.com/_/mysql)
-* redis: [`redis:latest`](https://hub.docker.com/_/redis)
+### 1. **NanoID** - Unpredictable ID Generation
+- **Purpose**: Generates cryptographically strong, URL-safe unique identifiers
+- **Use Case**: Alternative key generation strategy for unpredictable short URLs
+- **Benefits**: 
+  - Collision-resistant
+  - URL-safe characters
+  - Fast generation
 
-Please review the tags of the used images and set them to the same as you're running in production.
+### 2. **Snowflake** - Distributed ID Generation
+- **Purpose**: Generates unique, time-ordered IDs for distributed systems
+- **Use Case**: Primary key generation strategy for scalable deployments
+- **Benefits**:
+  - Guaranteed uniqueness across distributed nodes
+  - Time-ordered (sortable)
+  - No coordination required between nodes
+  - Encoded to base58 for shorter URLs
 
-## GraalVM Native Support
+### 3. **Bloom Filter** - Key Existence Check
+- **Purpose**: Probabilistic data structure to quickly check if a key might exist
+- **Use Case**: Pre-filtering non-existent aliases before database/Redis lookup
+- **Benefits**:
+  - Extremely fast lookups (O(1))
+  - Memory efficient
+  - Reduces unnecessary database queries for 404 cases
+  - False positives possible, but no false negatives
 
-This project has been configured to let you generate either a lightweight container or a native executable.
-It is also possible to run your tests in a native image.
+### 4. **Redis Cache** - Alias Lookup Caching
+- **Purpose**: Fast in-memory cache for frequently accessed aliases
+- **Use Case**: Caching alias-to-URL mappings to reduce database load
+- **Benefits**:
+  - Sub-millisecond lookup times
+  - Reduces database query load
+  - 10-day TTL for cached entries
+  - Supports high-throughput read operations
 
-### Lightweight Container with Cloud Native Buildpacks
-If you're already familiar with Spring Boot container images support, this is the easiest way to get started.
-Docker should be installed and configured on your machine prior to creating the image.
+### 5. **MySQL** - Persistent Storage
+- **Purpose**: Reliable, persistent storage for all alias mappings
+- **Use Case**: Primary data store with ACID guarantees
+- **Benefits**:
+  - Data durability
+  - Transaction support
+  - Relational data integrity
+  - Connection pooling with HikariCP
 
-To create the image, run the following goal:
+## Architecture Overview
+
+### Request Flow - Create Short URL
+1. Generate unique key using Snowflake or NanoID
+2. Check Bloom filter for potential collisions
+3. Save to MySQL database
+4. Add to Bloom filter
+5. Cache in Redis (10-day TTL)
+6. Store in in-memory LRU cache
+
+### Request Flow - Get/Redirect
+1. Check in-memory LRU cache (fastest)
+2. Check Bloom filter (if not present, return 404 immediately)
+3. Check Redis cache
+4. Query MySQL database
+5. Cache result in Redis and LRU cache
+6. Return redirect response
+
+## Getting Started
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Java 21+ (for local development)
+- Gradle 8.14+ (for local development)
+
+### Running with Docker Compose
+
+Start all services (Java app, MySQL, Redis):
+
+```bash
+# Build and start all services
+docker compose up -d --build
+
+# View logs
+docker compose logs -f app
+
+# Stop all services
+docker compose down
+
+# Stop and remove volumes (clean slate)
+docker compose down -v
+```
+
+The application will be available at `http://localhost:8080`
+
+**Services:**
+- Application: `http://localhost:8080`
+- MySQL: `localhost:3306`
+- Redis: `localhost:6379`
+
+### Local Development
+
+```bash
+# Build the project
+./gradlew build
+
+# Run the application
+./gradlew bootRun
+
+# Run tests
+./gradlew test
+```
+
+## API Endpoints
+
+### Create Short URL
+```bash
+POST /app/api/create
+Content-Type: application/json
+
+{
+  "url": "https://example.com/very/long/url",
+  "alias": "custom-alias",  # Optional
+  "expire": "2025-12-31 23:59:59"  # Optional
+}
+```
+
+**Response:**
+```json
+{
+  "url": "https://example.com/very/long/url",
+  "alias": "custom-alias",
+  "expire": "2025-12-31 23:59:59",
+  "shortenUrl": "http://localhost:8080/custom-alias"
+}
+```
+
+### Redirect to Original URL
+```bash
+GET /{alias}
+```
+
+Returns HTTP 302 redirect to the original URL, or 404 if alias not found.
+
+## Load Testing with k6
+
+### Prerequisites
+
+Install k6:
+```bash
+# macOS
+brew install k6
+
+# Linux
+sudo gpg -k
+sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys C5AD17C747E3415A3642D57D77C6C491D6AC1D69
+echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+sudo apt-get update
+sudo apt-get install k6
+```
+
+### Run Load Tests
+
+#### 1. Standard Load Test
+Creates 1000 aliases, then performs 100,000 GET requests (50% existing, 50% non-existing):
+
+```bash
+k6 run load-test.js
+```
+
+#### 2. Stress Test - Failed Requests
+Tests system under high concurrent failed requests (404s):
+
+```bash
+k6 run stress-test-fail.js
+```
+
+This test gradually ramps up from 50 to 1000 virtual users, all requesting non-existing aliases to stress test the Bloom filter and error handling.
+
+#### 3. Stress Test - Create Requests
+Tests system under high concurrent create operations:
+
+```bash
+k6 run stress-test-create.js
+```
+
+This test gradually ramps up from 10 to 200 virtual users, all creating new aliases to stress test database write performance and ID generation.
+
+### Custom Base URL
+
+```bash
+BASE_URL=http://localhost:8080 k6 run load-test.js
+```
+
+### Test Scripts Overview
+
+- **`load-test.js`**: Standard load test with mixed read operations
+- **`stress-test-fail.js`**: Stress test for failed requests (404s)
+- **`stress-test-create.js`**: Stress test for create operations
+
+## Configuration
+
+Key configuration in `application.properties`:
+
+```properties
+# Application
+app.shorten-domain=localhost:8080
+app.machine-id=1
+
+# Database
+spring.datasource.url=jdbc:mysql://localhost:3306/mydatabase
+spring.datasource.username=myuser
+spring.datasource.password=secret
+
+# Redis
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
+
+# Connection Pool
+spring.datasource.hikari.maximum-pool-size=90
+spring.datasource.hikari.minimum-idle=30
+```
+
+## Performance Optimizations
+
+1. **Multi-layer Caching**:
+   - L1: In-memory LRU cache (5 entries, fastest)
+   - L2: Redis cache (10-day TTL, sub-millisecond)
+   - L3: MySQL database (persistent, slower)
+
+2. **Bloom Filter Pre-filtering**:
+   - Eliminates unnecessary database queries for non-existent aliases
+   - Reduces database load by ~50% for 404 cases
+
+3. **Connection Pooling**:
+   - HikariCP with optimized pool settings
+   - Prevents connection exhaustion under load
+
+4. **Virtual Threads**:
+   - Java 21 virtual threads enabled for better concurrency
+   - Handles more concurrent requests with fewer OS threads
+
+## Project Structure
 
 ```
-$ ./gradlew bootBuildImage
+src/main/java/com/trithai/utils/shortenurl/
+├── controller/          # REST API endpoints
+├── service/            # Business logic
+│   └── impl/          # Service implementations
+├── config/            # Configuration classes
+├── dto/               # Data transfer objects
+├── entity/            # JPA entities
+├── exceptions/        # Exception handlers
+└── Application.java   # Main application class
 ```
 
-Then, you can run the app like any other container:
+## License
 
-```
-$ docker run --rm -p 8080:8080 utils.shortenurl:0.0.1-SNAPSHOT
-```
-
-### Executable with Native Build Tools
-Use this option if you want to explore more options such as running your tests in a native image.
-The GraalVM `native-image` compiler should be installed and configured on your machine.
-
-NOTE: GraalVM 25+ is required.
-
-To create the executable, run the following goal:
-
-```
-$ ./gradlew nativeCompile
-```
-
-Then, you can run the app as follows:
-```
-$ build/native/nativeCompile/utils.shortenurl
-```
-
-You can also run your existing tests suite in a native image.
-This is an efficient way to validate the compatibility of your application.
-
-To run your existing tests in a native image, run the following goal:
-
-```
-$ ./gradlew nativeTest
-```
-
-### Gradle Toolchain support
-
-There are some limitations regarding Native Build Tools and Gradle toolchains.
-Native Build Tools disable toolchain support by default.
-Effectively, native image compilation is done with the JDK used to execute Gradle.
-You can read more about [toolchain support in the Native Build Tools here](https://graalvm.github.io/native-build-tools/latest/gradle-plugin.html#configuration-toolchains).
-
+This project is part of a utility library for URL shortening services.
