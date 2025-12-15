@@ -35,8 +35,8 @@ const urls = [
 ];
 
 export const options = {
-  vus: 50,
-  iterations: 100000,
+  vus: 200,
+  iterations: 1000000,
   thresholds: {
     http_req_duration: ['p(95)<500'],
     http_req_failed: ['rate<0.01'],

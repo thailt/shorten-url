@@ -55,8 +55,78 @@ services:
     networks:
       - shortenurl-network
 
+  mysql-exporter:
+    image: prom/mysqld-exporter:v0.15.1
+    container_name: shortenurl-mysql-exporter
+    environment:
+      - DATA_SOURCE_NAME=root:verysecret@tcp(mysql:3306)/
+    command:
+      - '--collect.info_schema.tables'
+      - '--collect.info_schema.innodb_metrics'
+      - '--collect.global_status'
+      - '--collect.global_variables'
+      - '--collect.slave_status'
+      - '--collect.info_schema.processlist'
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - shortenurl-network
+
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: shortenurl-redis-exporter
+    environment:
+      - REDIS_ADDR=redis:6379
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - shortenurl-network
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: shortenurl-prometheus
+    ports:
+      - '9090:9090'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
+      - '--web.console.templates=/usr/share/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    depends_on:
+      - app
+      - mysql-exporter
+      - redis-exporter
+    networks:
+      - shortenurl-network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: shortenurl-grafana
+    ports:
+      - '3000:3000'
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus
+    networks:
+      - shortenurl-network
+
 volumes:
   my-app-data:
+  prometheus-data:
+  grafana-data:
 
 networks:
   shortenurl-network:

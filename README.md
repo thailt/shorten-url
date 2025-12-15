@@ -118,6 +118,8 @@ The application will be available at `http://localhost:8080`
 - Application: `http://localhost:8080`
 - MySQL: `localhost:3306`
 - Redis: `localhost:6379`
+- Prometheus: `http://localhost:9090` (metrics collection)
+- Grafana: `http://localhost:3000` (dashboards, default: admin/admin)
 
 ### Local Development
 
@@ -274,6 +276,33 @@ src/main/java/com/trithai/utils/shortenurl/
 ├── exceptions/        # Exception handlers
 └── Application.java   # Main application class
 ```
+
+## Monitoring
+
+The project includes Prometheus and Grafana for comprehensive monitoring. See [MONITORING.md](MONITORING.md) for detailed setup and usage.
+
+### Quick Start
+
+1. Start all services (includes monitoring):
+   ```bash
+   docker compose up -d --build
+   ```
+
+2. Access monitoring:
+   - **Grafana**: http://localhost:3000 (admin/admin)
+   - **Prometheus**: http://localhost:9090
+   - **Application Metrics**: http://localhost:8080/actuator/prometheus
+
+3. View pre-configured dashboard:
+   - Login to Grafana
+   - Navigate to Dashboards → Browse
+   - Open "URL Shortening Service - Monitoring Dashboard"
+
+### Monitored Components
+
+- **Spring Boot Application**: JVM metrics, HTTP metrics, database connection pool
+- **MySQL**: Connections, queries, performance metrics
+- **Redis**: Memory usage, operations, cache hit/miss rates
 
 ## License
 

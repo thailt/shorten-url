@@ -50,7 +50,7 @@ export const options = {
     { duration: '30s', target: 0 },
   ],
   thresholds: {
-    http_req_duration: ['p(95)<2000', 'p(99)<5000'],
+    http_req_duration: ['p(95)<200', 'p(99)<500'],
     http_req_failed: ['rate<0.1'],
     errors: ['rate<0.1'],
     success: ['rate>0.9'],
@@ -81,7 +81,7 @@ export default function () {
     payload,
     {
       headers: commonHeaders,
-      timeout: '10s',
+      timeout: '2s',
     }
   );
 
