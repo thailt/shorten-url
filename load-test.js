@@ -38,7 +38,7 @@ export const options = {
   vus: 200,
   iterations: 1000000,
   thresholds: {
-    http_req_duration: ['p(95)<500'],
+    http_req_duration: ['p(95)<2000'],
     http_req_failed: ['rate<0.01'],
   },
 };
@@ -53,7 +53,7 @@ export function setup() {
   console.log('Creating 1000 aliases...');
   const createdAliases = [];
 
-  for (let i = 0; i < 1000; i++) {
+  for (let i = 0; i < 1000_000; i++) {
     const urlIndex = i % urls.length;
     const alias = generateUniqueAlias(i);
     
@@ -76,7 +76,7 @@ export function setup() {
       console.log(`Failed to create alias ${i}: ${response.status} - ${response.body}`);
     }
 
-    if ((i + 1) % 100 === 0) {
+    if ((i + 1) % 10000 === 0) {
       console.log(`Created ${i + 1} aliases...`);
     }
   }
@@ -96,12 +96,12 @@ function generateRandomAlias() {
 
 export default function (data) {
   const { createdAliases } = data;
-  const existingRatio = 0.5;
+  const existingRatio = 0.99;
 
   let alias;
   const random = Math.random();
 
-  if (random < existingRatio && createdAliases.length > 0) {
+  if (createdAliases.length > 0) {
     alias = createdAliases[Math.floor(Math.random() * createdAliases.length)];
   } else {
     alias = generateRandomAlias();

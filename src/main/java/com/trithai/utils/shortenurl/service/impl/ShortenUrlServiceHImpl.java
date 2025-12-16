@@ -8,6 +8,7 @@ import com.trithai.utils.shortenurl.repository.AliasRepository;
 import com.trithai.utils.shortenurl.service.AliasDBService;
 import com.trithai.utils.shortenurl.service.KeyGenerationService;
 import com.trithai.utils.shortenurl.service.ShortenUrlService;
+import com.trithai.utils.shortenurl.service.WriteBehindBuffer;
 import com.trithai.utils.shortenurl.utils.LRUCache;
 
 import jakarta.annotation.PostConstruct;
@@ -36,6 +37,7 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
     private final BloomFilterService bloomFilterService;
     private final AliasDBService aliasDBService;
+    private final WriteBehindBuffer writeBehindBuffer;
 
     @PostConstruct
     public void init() {
@@ -77,15 +79,22 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
     @Override
     public AliasCreateResponse createShortUrl(AliasCreateRequest longUrl) {
         String key = keyGenerationService.createUniqueKey();
-        var alias = aliasDBService.saveToDb(longUrl, key);
+
+        var expiredAt =
+                longUrl.getExpire() != null
+                        ? longUrl.getExpire()
+                        : java.time.LocalDateTime.now().plusYears(1);
 
         var response =
                 AliasCreateResponse.builder()
-                        .alias(alias.getAlias())
-                        .expire(alias.getExpiredAt())
-                        .url(alias.getUrl())
+                        .alias(key)
+                        .expire(expiredAt)
+                        .url(longUrl.getUrl())
                         .shortenUrl("http://" + appConfig.getShortenDomain() + "/" + key)
                         .build();
+
+        writeBehindBuffer.enqueue(key, longUrl.getUrl(), longUrl.getExpire());
+
         shortenUrlMap.put(key, response);
         bloomFilterService.addData(key);
         aliasReponseRedisTemplate.opsForValue().set(key, response, Duration.ofDays(10));
