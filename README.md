@@ -215,6 +215,90 @@ This test gradually ramps up from 10 to 200 virtual users, all creating new alia
 BASE_URL=http://localhost:8080 k6 run load-test.js
 ```
 
+## Load Testing with wrk
+
+### Prerequisites
+
+Install wrk:
+```bash
+# macOS
+brew install wrk
+
+# Linux
+sudo apt-get install wrk
+# or compile from source
+git clone https://github.com/wg/wrk.git
+cd wrk && make
+```
+
+### Run wrk Load Tests
+
+#### 1. Random GET Requests (2 minutes)
+Generates maximum load with random aliases for 2 minutes:
+
+```bash
+# Using the shell script (recommended)
+./wrk-random-get.sh
+
+# Or directly with wrk
+wrk -t12 -c400 -d120s -s wrk-random-get.lua --latency http://localhost:8080
+```
+
+**Parameters:**
+- `-t12`: 12 threads (adjust based on CPU cores)
+- `-c400`: 400 concurrent connections
+- `-d120s`: 2 minutes duration
+- `-s`: Lua script for random alias generation
+- `--latency`: Show detailed latency statistics
+
+#### 2. Custom Configuration
+
+```bash
+# More aggressive (higher throughput)
+wrk -t$(nproc) -c800 -d120s -s wrk-random-get.lua --latency http://localhost:8080
+
+# Less aggressive (lower resource usage)
+wrk -t4 -c100 -d120s -s wrk-random-get.lua --latency http://localhost:8080
+```
+
+#### 3. With Existing Aliases (Optional)
+
+If you have a list of existing aliases, create `aliases.txt` (one alias per line) and use:
+
+```bash
+wrk -t12 -c400 -d120s -s wrk-random-get-with-aliases.lua --latency http://localhost:8080
+```
+
+This will mix 50% existing aliases with 50% random aliases for more realistic testing.
+
+#### 4. Create Aliases (POST Requests)
+
+Test alias creation with POST requests for 2 minutes:
+
+```bash
+# Using the shell script (recommended)
+./wrk-create-alias.sh
+
+# Or directly with wrk
+wrk -t12 -c400 -d120s -s wrk-create-alias.lua --latency http://localhost:8080
+```
+
+**With realistic URLs (matching k6 tests):**
+```bash
+wrk -t12 -c400 -d120s -s wrk-create-alias-realistic.lua --latency http://localhost:8080
+```
+
+**Note:** POST requests are typically slower than GET requests due to database writes. Adjust connection count (`-c`) if needed:
+- Lower connections: `-c100` for write-heavy workloads
+- Higher connections: `-c400` for maximum throughput
+
+### wrk vs k6
+
+- **wrk**: Best for maximum throughput, simple HTTP benchmarking, quick performance checks
+- **k6**: Best for complex scenarios, CI/CD integration, detailed metrics and reporting
+
+See `LOAD-TESTING-TOOLS.md` for detailed comparison.
+
 ### Test Scripts Overview
 
 - **`load-test.js`**: Standard load test with mixed read operations

@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 public class Alias {
     @Id
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "alias_seq_gen")
-    @SequenceGenerator(name = "alias_seq_gen", sequenceName = "alias_seq", allocationSize = 1000)
+    @SequenceGenerator(name = "alias_seq_gen", sequenceName = "alias_seq", allocationSize = 10000)
     private Long id;
 
     private String alias;

@@ -7,6 +7,7 @@ import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Objects;
 
 @Service
@@ -38,7 +39,10 @@ public class BloomFilterService  {
         return getShortenBloomFilter().contains(shortenURL);
     }
 
-    public void addData(String data){
+    public void addData(List<String> data){
         getShortenBloomFilter().add(data);
+    }
+    public long count(){
+        return getShortenBloomFilter().count();
     }
 }

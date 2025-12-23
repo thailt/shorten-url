@@ -13,4 +13,6 @@ public interface AliasRepository extends JpaRepository<Alias, Long> {
 
     @Query(value = "select a.alias from alias a", nativeQuery = true)
     Set<String> findAllAlias();
+    @Query(value = "select a.alias from alias a where a.id >=:minId and a.id<:maxId ", nativeQuery = true)
+    Set<String> findAllAlias(long minId, long maxId);
 }

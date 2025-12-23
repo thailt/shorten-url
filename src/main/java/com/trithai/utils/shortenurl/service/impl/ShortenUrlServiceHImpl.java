@@ -15,13 +15,17 @@ import jakarta.annotation.PostConstruct;
 
 import lombok.AllArgsConstructor;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
+@Slf4j
 @AllArgsConstructor
 @Service
 @Primary
@@ -41,7 +45,17 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
     @PostConstruct
     public void init() {
-        aliasRepository.findAllAlias().forEach(alias -> bloomFilterService.addData(alias));
+
+        long current = bloomFilterService.count();
+        log.info("Bloom filter count: {}", current);
+
+        for(long i = current; true; i=i+100_000L){
+            List<String> aliases = aliasRepository.findAllAlias(i, i+100_000L).stream().toList();
+            if(aliases == null || aliases.isEmpty()){break;}
+            bloomFilterService.addData(aliases);
+            log.info("Bloom Filter added {}", i+100_000L);
+        }
+
     }
 
     @Override
@@ -96,7 +110,7 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
         writeBehindBuffer.enqueue(key, longUrl.getUrl(), longUrl.getExpire());
 
         shortenUrlMap.put(key, response);
-        bloomFilterService.addData(key);
+        bloomFilterService.addData(List.of(key));
         aliasReponseRedisTemplate.opsForValue().set(key, response, Duration.ofDays(10));
         return response;
     }
