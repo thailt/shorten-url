@@ -28,7 +28,7 @@ import java.time.Duration;
 @Qualifier("hash-map-shorten-service")
 public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
-    private final LRUCache<String, AliasCreateResponse> shortenUrlMap = new LRUCache<>(5);
+    private final LRUCache<String, AliasCreateResponse> shortenUrlMap = new LRUCache<>(1000);
 
     private final KeyGenerationService keyGenerationService;
     private final AppConfig appConfig;
