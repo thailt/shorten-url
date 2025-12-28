@@ -233,71 +233,195 @@ cd wrk && make
 
 ### Run wrk Load Tests
 
+All wrk scripts are located in the `script/` directory.
+
 #### 1. Random GET Requests (2 minutes)
 Generates maximum load with random aliases for 2 minutes:
 
 ```bash
 # Using the shell script (recommended)
-./wrk-random-get.sh
+./script/wrk-random-get.sh
 
 # Or directly with wrk
-wrk -t12 -c400 -d120s -s wrk-random-get.lua --latency http://localhost:8080
+wrk -t12 -c400 -d120s -s script/wrk-random-get.lua --latency http://localhost:8080
 ```
 
 **Parameters:**
-- `-t12`: 12 threads (adjust based on CPU cores)
-- `-c400`: 400 concurrent connections
+- `-t12`: 12 threads (auto-detects CPU cores)
+- `-c400`: 400 concurrent connections (read-heavy workload)
 - `-d120s`: 2 minutes duration
 - `-s`: Lua script for random alias generation
 - `--latency`: Show detailed latency statistics
 
-#### 2. Custom Configuration
+**What it does:**
+- Generates random 10-character alphanumeric aliases
+- Performs GET requests to `/{alias}`
+- Tests system under high read load
+- Measures latency and throughput
 
-```bash
-# More aggressive (higher throughput)
-wrk -t$(nproc) -c800 -d120s -s wrk-random-get.lua --latency http://localhost:8080
+**Example Test Results:**
 
-# Less aggressive (lower resource usage)
-wrk -t4 -c100 -d120s -s wrk-random-get.lua --latency http://localhost:8080
-```
+Running the command above achieved **~21,000 requests/second** throughput. Below are the test results:
 
-#### 3. With Existing Aliases (Optional)
+**wrk Output:**
+![wrk GET Test Results](docs/wrk_get_21k_reqpersec.png)
 
-If you have a list of existing aliases, create `aliases.txt` (one alias per line) and use:
+**Grafana Monitoring Dashboard:**
+![Grafana GET Test Monitoring](docs/wrk_monitor_get_21K_reqpersec.png)
 
-```bash
-wrk -t12 -c400 -d120s -s wrk-random-get-with-aliases.lua --latency http://localhost:8080
-```
+**Key Metrics from Test:**
+- **Throughput**: ~21,000 requests/second
+- **Latency**: p50, p95, p99 percentiles shown in wrk output
+- **System Performance**: Real-time metrics visible in Grafana dashboard
 
-This will mix 50% existing aliases with 50% random aliases for more realistic testing.
-
-#### 4. Create Aliases (POST Requests)
-
+#### 2. Random CREATE Requests (2 minutes)
 Test alias creation with POST requests for 2 minutes:
 
 ```bash
 # Using the shell script (recommended)
-./wrk-create-alias.sh
+./script/wrk-random-create.sh
 
-# Or directly with wrk
-wrk -t12 -c400 -d120s -s wrk-create-alias.lua --latency http://localhost:8080
+# Or directly with wrk (with 400 connections for maximum throughput)
+wrk -t12 -c400 -d120s -s script/wrk-random-create.lua --latency http://localhost:8080
 ```
 
-**With realistic URLs (matching k6 tests):**
+**Parameters:**
+- `-t12`: 12 threads (auto-detects CPU cores)
+- `-c400`: 400 concurrent connections (can be reduced to `-c200` for write-heavy workloads)
+- `-d120s`: 2 minutes duration
+- `-s`: Lua script for random alias creation
+- `--latency`: Show detailed latency statistics
+
+**What it does:**
+- Generates random 10-15 character alphanumeric aliases
+- Creates POST requests to `/app/api/create`
+- Uses mix of sample URLs (70% pool, 30% dynamic)
+- Tests database write performance and ID generation
+
+**Example Test Results:**
+
+Running the command above achieved **~14,000 requests/second** throughput. Below are the test results:
+
+**wrk Output:**
+![wrk CREATE Test Results](docs/wrk_create_14k_reqpersec.png)
+
+**Grafana Monitoring Dashboard:**
+![Grafana CREATE Test Monitoring](docs/wrk_monitor_create_14k_reqpersec.png)
+
+**Key Metrics from Test:**
+- **Throughput**: ~14,000 requests/second
+- **Latency**: p50, p95, p99 percentiles shown in wrk output
+- **Database Performance**: Write operations and connection pool usage visible in Grafana
+- **System Performance**: Real-time metrics including JVM, memory, and cache performance
+
+**Note:** POST requests are typically slower than GET requests due to database writes. The test shows CREATE operations achieve ~66% of GET throughput, which is expected for write-heavy workloads.
+
+#### 3. Custom Configuration
+
 ```bash
-wrk -t12 -c400 -d120s -s wrk-create-alias-realistic.lua --latency http://localhost:8080
+# More aggressive GET test (higher throughput)
+wrk -t$(nproc) -c800 -d120s -s script/wrk-random-get.lua --latency http://localhost:8080
+
+# Less aggressive GET test (lower resource usage)
+wrk -t4 -c100 -d120s -s script/wrk-random-get.lua --latency http://localhost:8080
+
+# Custom CREATE test (adjust connections for your system)
+wrk -t12 -c100 -d120s -s script/wrk-random-create.lua --latency http://localhost:8080
 ```
 
-**Note:** POST requests are typically slower than GET requests due to database writes. Adjust connection count (`-c`) if needed:
-- Lower connections: `-c100` for write-heavy workloads
-- Higher connections: `-c400` for maximum throughput
+### Monitoring Test Results with Grafana
+
+While running wrk load tests, you can monitor the system performance in real-time using Grafana dashboards.
+
+#### Setup
+
+1. **Start all services** (including monitoring):
+   ```bash
+   docker compose up -d --build
+   ```
+
+2. **Access Grafana**:
+   - URL: http://localhost:3000
+   - Default credentials: `admin` / `admin`
+
+3. **View the monitoring dashboard**:
+   - Navigate to **Dashboards** → **Browse**
+   - Open **"URL Shortening Service - Monitoring Dashboard"**
+
+#### Test Results
+
+Example test results with both wrk output and Grafana monitoring screenshots are available in the `docs/` directory:
+
+**GET Request Test Results:**
+- **`docs/wrk_get_21k_reqpersec.png`**: wrk command output showing ~21,000 requests/second
+- **`docs/wrk_monitor_get_21K_reqpersec.png`**: Grafana dashboard during GET load test
+  - Shows request rate, latency, error rate
+  - Database connection pool usage
+  - Redis cache performance
+  - JVM metrics (memory, GC, threads)
+
+**CREATE Request Test Results:**
+- **`docs/wrk_create_14k_reqpersec.png`**: wrk command output showing ~14,000 requests/second
+- **`docs/wrk_monitor_create_14k_reqpersec.png`**: Grafana dashboard during CREATE load test
+  - Shows request rate, latency, error rate
+  - Database write performance and connection pool usage
+  - Redis cache performance
+  - JVM metrics (memory, GC, threads)
+
+#### What to Monitor
+
+During wrk load tests, monitor these key metrics in Grafana:
+
+**Application Metrics:**
+- HTTP request rate (requests/second)
+- Response time (p50, p95, p99)
+- Error rate (4xx, 5xx responses)
+- Active connections
+
+**Database Metrics:**
+- MySQL connection pool usage
+- Query execution time
+- Database connections
+
+**Cache Metrics:**
+- Redis memory usage
+- Cache hit/miss rates
+- Redis operations per second
+
+**System Metrics:**
+- CPU usage
+- Memory usage (heap, non-heap)
+- GC pause times
+- Thread count
+
+#### Running Tests with Monitoring
+
+1. **Start monitoring** (if not already running):
+   ```bash
+   docker compose up -d prometheus grafana
+   ```
+
+2. **Run wrk test** in one terminal:
+   ```bash
+   ./script/wrk-random-get.sh
+   # or
+   ./script/wrk-random-create.sh
+   ```
+
+3. **Watch Grafana** in your browser:
+   - Open http://localhost:3000
+   - Navigate to the monitoring dashboard
+   - Observe real-time metrics during the test
+
+4. **Compare results**:
+   - Compare GET vs CREATE performance
+   - Analyze latency under different loads
+   - Check for bottlenecks (database, cache, memory)
 
 ### wrk vs k6
 
 - **wrk**: Best for maximum throughput, simple HTTP benchmarking, quick performance checks
 - **k6**: Best for complex scenarios, CI/CD integration, detailed metrics and reporting
-
-See `LOAD-TESTING-TOOLS.md` for detailed comparison.
 
 ### Test Scripts Overview
 
