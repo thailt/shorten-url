@@ -8,7 +8,6 @@ import com.trithai.utils.shortenurl.repository.AliasRepository;
 import com.trithai.utils.shortenurl.service.AliasDBService;
 import com.trithai.utils.shortenurl.service.KeyGenerationService;
 import com.trithai.utils.shortenurl.service.ShortenUrlService;
-import com.trithai.utils.shortenurl.service.WriteBehindBuffer;
 import com.trithai.utils.shortenurl.utils.LRUCache;
 
 import jakarta.annotation.PostConstruct;
@@ -22,7 +21,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
@@ -41,19 +40,21 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
     private final BloomFilterService bloomFilterService;
     private final AliasDBService aliasDBService;
-    private final WriteBehindBuffer writeBehindBuffer;
 
     @PostConstruct
     public void init() {
+        long batchSize = 1_000_000L;
 
         long current = bloomFilterService.count();
         log.info("Bloom filter count: {}", current);
 
-        for(long i = current; true; i=i+100_000L){
-            List<String> aliases = aliasRepository.findAllAlias(i, i+100_000L).stream().toList();
-            if(aliases == null || aliases.isEmpty()){break;}
+        for (long i = current; true; i = i + batchSize) {
+            List<String> aliases = aliasRepository.findAllAlias(i, i + batchSize).stream().toList();
+            if (aliases == null || aliases.isEmpty()) {
+                break;
+            }
             bloomFilterService.addData(aliases);
-            log.info("Bloom Filter added {}", i+100_000L);
+            log.info("Bloom Filter added {}", i + batchSize);
         }
 
     }
@@ -65,6 +66,7 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
         }
 
         if (!bloomFilterService.checkShortenURLAvailability(shortUrl)) {
+            log.info("Shortening url {} failed", shortUrl);
             throw new AliasNotFoundException(shortUrl);
         }
 
@@ -93,25 +95,26 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
     @Override
     public AliasCreateResponse createShortUrl(AliasCreateRequest longUrl) {
         String key = keyGenerationService.createUniqueKey();
-
-        var expiredAt =
+        LocalDateTime expiredAt =
                 longUrl.getExpire() != null
                         ? longUrl.getExpire()
-                        : java.time.LocalDateTime.now().plusYears(1);
+                        : LocalDateTime.now().plusYears(1);
+
+        var savedAlias = aliasDBService.saveToDb(key, longUrl.getUrl(), expiredAt);
 
         var response =
                 AliasCreateResponse.builder()
-                        .alias(key)
-                        .expire(expiredAt)
-                        .url(longUrl.getUrl())
-                        .shortenUrl("http://" + appConfig.getShortenDomain() + "/" + key)
+                        .alias(savedAlias.getAlias())
+                        .expire(savedAlias.getExpiredAt())
+                        .url(savedAlias.getUrl())
+                        .shortenUrl("http://" + appConfig.getShortenDomain() + "/" + savedAlias.getAlias())
                         .build();
 
-        writeBehindBuffer.enqueue(key, longUrl.getUrl(), longUrl.getExpire());
-
-        shortenUrlMap.put(key, response);
-        bloomFilterService.addData(List.of(key));
-        aliasReponseRedisTemplate.opsForValue().set(key, response, Duration.ofDays(10));
+        shortenUrlMap.put(savedAlias.getAlias(), response);
+        bloomFilterService.addData(List.of(savedAlias.getAlias()));
+        aliasReponseRedisTemplate
+                .opsForValue()
+                .set(savedAlias.getAlias(), response, Duration.ofDays(10));
         return response;
     }
 }

@@ -33,8 +33,8 @@ POST /app/api/create
   -> ShortenController
     -> ShortenUrlService.createShortUrl()
       -> generate key
+      -> persist alias to DB synchronously
       -> build response
-      -> enqueue write-behind task
       -> update in-memory cache
       -> update bloom filter
       -> update Redis cache
@@ -42,9 +42,8 @@ POST /app/api/create
 ```
 
 Important property:
-- response can be returned before durable DB write is fully completed because persistence is buffered / asynchronous through `WriteBehindBuffer`.
-- current write path is better described as eventually persisted rather than immediately durable.
-- this means correctness and recovery behavior must be evaluated together with performance.
+- response is returned only after DB persistence succeeds.
+- cache and bloom layers are hydrated after persistence, not before.
 
 ### 2. Redirect / Lookup Alias
 ```text
@@ -74,8 +73,7 @@ Important property:
 - `KeyGenerationService` abstracts key generation strategy
   - current default runtime strategy is `SnowflakeKeyGen` (`@Primary`)
 - `AliasDBService` abstracts DB lookup/write concerns
-- `WriteBehindBuffer` supports buffered persistence
-- `BatchWriteService` / `AliasWriteTask` suggest asynchronous batch persistence behavior
+- `BatchWriteService` / `AliasWriteTask` / `WriteBehindBuffer` remain in the repo as legacy/experimental buffered-write components and are not part of the default create flow
 
 ### Persistence Layer
 - `AliasRepository` is JPA repository for alias entity access

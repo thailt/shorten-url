@@ -61,7 +61,7 @@ This project is primarily a technical study / utility service focused on:
 ## What an agent should know first
 - This repo is performance-oriented, but also experimental / study-driven in some architecture choices.
 - Redirect path is latency-sensitive.
-- Create path uses asynchronous / buffered write behavior via `WriteBehindBuffer` and is not immediately durable at response time.
+- Create path now persists to DB before response is returned.
 - Bloom filter behavior affects miss-path logic and should be treated carefully.
 - Changes to alias generation or redirect lookup can impact correctness and performance together.
-- The request DTO includes an `alias` field, but the current primary create flow generates its own key and does not honor user-provided alias.
+- Custom alias is not part of the request contract.

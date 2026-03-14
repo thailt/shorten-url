@@ -1,15 +1,13 @@
 package com.trithai.utils.shortenurl.service;
 
-import com.trithai.utils.shortenurl.dto.AliasCreateRequest;
-import com.trithai.utils.shortenurl.dto.AliasCreateResponse;
 import com.trithai.utils.shortenurl.entity.Alias;
+import com.trithai.utils.shortenurl.exceptions.CreatingAliasExistedException;
 import com.trithai.utils.shortenurl.repository.AliasRepository;
 import jakarta.transaction.Transactional;
-import lombok.AllArgsConstructor;
-import org.springframework.stereotype.Service;
-
 import java.time.LocalDateTime;
-import java.util.Objects;
+import lombok.AllArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.stereotype.Service;
 
 @Service
 @AllArgsConstructor
@@ -18,23 +16,21 @@ public class AliasDBService {
 
     @Transactional
     public Alias getFromDb(String shortUrl) {
-        var alias = aliasRepository.findAliasByAlias(shortUrl);
-        return alias;
+        return aliasRepository.findAliasByAlias(shortUrl);
     }
 
     @Transactional
-    public Alias saveToDb(AliasCreateRequest longUrl, String key) {
-        var alias =
-                aliasRepository.save(
-                        Alias.builder()
-                                .alias(key)
-                                .createdAt(LocalDateTime.now())
-                                .expiredAt(
-                                        Objects.requireNonNullElse(
-                                                longUrl.getExpire(),
-                                                LocalDateTime.now().plusYears(1)))
-                                .url(longUrl.getUrl())
-                                .build());
-        return alias;
+    public Alias saveToDb(String key, String url, LocalDateTime expiredAt) {
+        try {
+            return aliasRepository.save(
+                    Alias.builder()
+                            .alias(key)
+                            .createdAt(LocalDateTime.now())
+                            .expiredAt(expiredAt)
+                            .url(url)
+                            .build());
+        } catch (DataIntegrityViolationException ex) {
+            throw new CreatingAliasExistedException(key);
+        }
     }
 }

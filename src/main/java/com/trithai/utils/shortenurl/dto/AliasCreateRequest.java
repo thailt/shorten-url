@@ -17,8 +17,6 @@ public class AliasCreateRequest {
     @NotEmpty(message = "URL is required")
     private String url;
 
-    private String alias;
-
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime expire;
 }

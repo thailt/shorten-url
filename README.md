@@ -1,7 +1,7 @@
 # URL Shortening Service
 
 > Agent/repo context starter pack:
-> `AGENTS_CONTEXT_INDEX.md`, `PROJECT_OVERVIEW.md`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `CONVENTIONS.md`, `TASK_WORKFLOW.md`, `MODULE_MAP.md`, `REPO_MEMORY.md`
+> `AGENTS_CONTEXT_INDEX.md`, `PROJECT_OVERVIEW.md`, `ARCHITECTURE.md`, `CONSTRAINTS.md`, `CONVENTIONS.md`, `TASK_WORKFLOW.md`, `MODULE_MAP.md`, `REPO_MEMORY.md`, `ARCHITECTURE_REVIEW.md`, `KNOWN_GAPS.md`, `REFACTOR_ROADMAP.md`
 
 
 A high-performance, scalable URL shortening service built with Spring Boot, featuring advanced caching strategies, Bloom filter optimization, and distributed ID generation.
@@ -15,7 +15,7 @@ This service provides a URL shortening API that converts long URLs into short, m
 - **Expiration Support**: Optional expiration dates for short URLs
 - **High Performance**: Multi-layer caching with LRU cache, Redis, and Bloom filter optimization
 - **Scalable Architecture**: Designed for distributed systems with Snowflake-based key generation by default
-- **Buffered Persistence**: Create requests are acknowledged before batched DB flush completes
+- **DB-First Create Flow**: Create requests are acknowledged after synchronous DB persistence succeeds
 
 ## Technical Stack
 
@@ -77,12 +77,12 @@ This service provides a URL shortening API that converts long URLs into short, m
 
 ### Request Flow - Create Short URL
 1. Generate key using the configured `KeyGenerationService` (Snowflake by default)
-2. Build API response
-3. Enqueue write-behind task for batched DB persistence
+2. Persist alias to MySQL synchronously
+3. Build API response
 4. Add alias to Bloom filter
 5. Cache in Redis (10-day TTL)
 6. Store in in-memory LRU cache
-7. Return response before scheduled DB flush completes
+7. Return response after DB persistence succeeds
 
 ### Request Flow - Get/Redirect
 1. Check in-memory LRU cache (fastest)
@@ -149,7 +149,6 @@ Content-Type: application/json
 
 {
   "url": "https://example.com/very/long/url",
-  "alias": "optional-request-field-currently-not-used-by-primary-flow",
   "expire": "2025-12-31 23:59:59"
 }
 ```
@@ -163,8 +162,6 @@ Content-Type: application/json
   "shortenUrl": "http://localhost:8080/8vK3mQpZ"
 }
 ```
-
-**Current behavior note:** the request DTO contains an `alias` field, but the current primary implementation generates its own alias instead of honoring a user-provided custom alias.
 
 ### Redirect to Original URL
 ```bash

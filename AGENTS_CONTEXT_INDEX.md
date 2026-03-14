@@ -8,6 +8,9 @@
 5. `TASK_WORKFLOW.md`
 6. `MODULE_MAP.md`
 7. `REPO_MEMORY.md`
+8. `ARCHITECTURE_REVIEW.md`
+9. `KNOWN_GAPS.md`
+10. `REFACTOR_ROADMAP.md`
 
 ## Quick Orientation
 If task touches:

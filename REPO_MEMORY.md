@@ -9,8 +9,8 @@ Do not use this file as a raw work log.
 - Bloom filter is used to short-circuit obvious misses.
 - Redis is a cache layer, not durable truth.
 - MySQL is the intended durable storage layer.
-- Create flow currently uses buffered/write-behind persistence semantics.
-- The current primary create flow does not honor user-provided custom alias even though the request DTO still exposes such a field.
+- Default create flow now persists to DB before populating cache/bloom layers.
+- Custom alias is not part of the request contract.
 
 ## Known Sharp Edges
 - A successful create response may not mean DB persistence already completed.
