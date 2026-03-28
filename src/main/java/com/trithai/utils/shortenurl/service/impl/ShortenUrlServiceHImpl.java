@@ -4,16 +4,14 @@ import com.trithai.utils.shortenurl.config.AppConfig;
 import com.trithai.utils.shortenurl.dto.AliasCreateRequest;
 import com.trithai.utils.shortenurl.dto.AliasCreateResponse;
 import com.trithai.utils.shortenurl.exceptions.AliasNotFoundException;
-import com.trithai.utils.shortenurl.repository.AliasRepository;
 import com.trithai.utils.shortenurl.service.AliasDBService;
+import com.trithai.utils.shortenurl.service.BloomFilterReadiness;
 import com.trithai.utils.shortenurl.service.KeyGenerationService;
+import com.trithai.utils.shortenurl.service.MicroBatchAliasWriteService;
 import com.trithai.utils.shortenurl.service.ShortenUrlService;
 import com.trithai.utils.shortenurl.utils.LRUCache;
 
-import jakarta.annotation.PostConstruct;
-
-import lombok.AllArgsConstructor;
-
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Primary;
@@ -25,7 +23,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor
 @Service
 @Primary
 @Qualifier("hash-map-shorten-service")
@@ -35,29 +33,12 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
 
     private final KeyGenerationService keyGenerationService;
     private final AppConfig appConfig;
-    private final AliasRepository aliasRepository;
     private final RedisTemplate<String, AliasCreateResponse> aliasReponseRedisTemplate;
 
     private final BloomFilterService bloomFilterService;
+    private final BloomFilterReadiness bloomFilterReadiness;
     private final AliasDBService aliasDBService;
-
-    @PostConstruct
-    public void init() {
-        long batchSize = 1_000_000L;
-
-        long current = bloomFilterService.count();
-        log.info("Bloom filter count: {}", current);
-
-        for (long i = current; true; i = i + batchSize) {
-            List<String> aliases = aliasRepository.findAllAlias(i, i + batchSize).stream().toList();
-            if (aliases == null || aliases.isEmpty()) {
-                break;
-            }
-            bloomFilterService.addData(aliases);
-            log.info("Bloom Filter added {}", i + batchSize);
-        }
-
-    }
+    private final MicroBatchAliasWriteService microBatchAliasWriteService;
 
     @Override
     public AliasCreateResponse getAlias(String shortUrl) {
@@ -65,8 +46,8 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
             return shortenUrlMap.get(shortUrl);
         }
 
-        if (!bloomFilterService.checkShortenURLAvailability(shortUrl)) {
-            log.info("Shortening url {} failed", shortUrl);
+        if (bloomFilterReadiness.isReady()
+                && !bloomFilterService.checkShortenURLAvailability(shortUrl)) {
             throw new AliasNotFoundException(shortUrl);
         }
 
@@ -91,7 +72,6 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
         throw new AliasNotFoundException(shortUrl);
     }
 
-
     @Override
     public AliasCreateResponse createShortUrl(AliasCreateRequest longUrl) {
         String key = keyGenerationService.createUniqueKey();
@@ -100,7 +80,8 @@ public class ShortenUrlServiceHImpl implements ShortenUrlService {
                         ? longUrl.getExpire()
                         : LocalDateTime.now().plusYears(1);
 
-        var savedAlias = aliasDBService.saveToDb(key, longUrl.getUrl(), expiredAt);
+        var savedAlias =
+                microBatchAliasWriteService.submitAndAwait(key, longUrl.getUrl(), expiredAt);
 
         var response =
                 AliasCreateResponse.builder()

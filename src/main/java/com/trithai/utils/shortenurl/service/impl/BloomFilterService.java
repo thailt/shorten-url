@@ -1,48 +1,30 @@
 package com.trithai.utils.shortenurl.service.impl;
 
-import lombok.RequiredArgsConstructor;
-import lombok.Synchronized;
-
 import org.redisson.api.RBloomFilter;
 import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
-public class BloomFilterService  {
+public class BloomFilterService {
 
-    private final RedissonClient redissonClient;
-    private RBloomFilter<String> shortenBloomFilter;
-
+    private final RBloomFilter<String> shortenBloomFilter;
 
     public BloomFilterService(RedissonClient redissonClient) {
-        this.redissonClient = redissonClient;
-        shortenBloomFilter = getShortenBloomFilter();
-    }
-
-    @Synchronized
-    public RBloomFilter<String> getShortenBloomFilter() {
-
-        if (Objects.isNull(shortenBloomFilter)) {
-            RBloomFilter<String> stringRBloomFilter = redissonClient
-                    .getBloomFilter("bf-alias");
-            stringRBloomFilter.tryInit(99999, 0.001);
-            shortenBloomFilter = stringRBloomFilter;
-        }
-
-        return shortenBloomFilter;
+        this.shortenBloomFilter = redissonClient.getBloomFilter("bf-alias");
+        this.shortenBloomFilter.tryInit(100_000_000, 0.001);
     }
 
     public boolean checkShortenURLAvailability(String shortenURL) {
-        return getShortenBloomFilter().contains(shortenURL);
+        return shortenBloomFilter.contains(shortenURL);
     }
 
-    public void addData(List<String> data){
-        getShortenBloomFilter().add(data);
+    public void addData(List<String> data) {
+        shortenBloomFilter.add(data);
     }
-    public long count(){
-        return getShortenBloomFilter().count();
+
+    public long count() {
+        return shortenBloomFilter.count();
     }
 }

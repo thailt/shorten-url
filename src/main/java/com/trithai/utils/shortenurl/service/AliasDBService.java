@@ -21,11 +21,17 @@ public class AliasDBService {
 
     @Transactional
     public Alias saveToDb(String key, String url, LocalDateTime expiredAt) {
+        return saveToDb(key, url, expiredAt, LocalDateTime.now());
+    }
+
+    @Transactional
+    public Alias saveToDb(
+            String key, String url, LocalDateTime expiredAt, LocalDateTime createdAt) {
         try {
             return aliasRepository.save(
                     Alias.builder()
                             .alias(key)
-                            .createdAt(LocalDateTime.now())
+                            .createdAt(createdAt)
                             .expiredAt(expiredAt)
                             .url(url)
                             .build());
